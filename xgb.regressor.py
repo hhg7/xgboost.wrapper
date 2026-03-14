@@ -5,7 +5,7 @@ import os
 # the ML libraries take forever to load, so checking for the json file first saves time
 parser = argparse.ArgumentParser(description='Pass a file name.')
 parser.add_argument('--colsample_bytree', default = 1, required = False) # range (0,1]
-parser.add_argument('--file',        required = True)
+parser.add_argument('--file',        required = True, help = 'The input file')
 parser.add_argument('--output_stem', required = True)
 parser.add_argument('--target',      required = True)
 # https://xgboost.readthedocs.io/en/latest/parameter.html
@@ -33,7 +33,16 @@ import numpy as np
 from sklearn.model_selection import train_test_split, KFold, cross_val_score, cross_validate
 import xgboost
 from sklearn.metrics import mean_absolute_error, mean_squared_error
-#from sklearn.metrics import accuracy_score, mean_squared_error
+
+def sanitize_columns(df):
+	"""
+	Converts all column names to strings and strips whitespace.
+	"""
+	# 1. Cast all column names to strings (fixes the Int vs String issue)
+	df.columns = df.columns.astype(str)
+	# 2. Strip leading/trailing whitespace (fixes " 100" vs "100")
+	df.columns = df.columns.str.strip()
+	return df
 
 def ref_to_json_file(data, filename):
 	json1=json.dumps(data)
@@ -60,6 +69,7 @@ def xgb_regressor_wrapper( input_file, category_cols, dependent_var, output_stem
   elif re.search(r'\.xlsx$', input_file):
     pandasDF = pd.read_excel(input_file)
   # https://stackoverflow.com/questions/58101126/using-scikit-learn-onehotencoder-with-a-pandas-dataframe
+  pandasDF = sanitize_columns( pandasDF )
   if args.drop:
   	for col in args.drop:
   		pandasDF = pandasDF.drop(columns = [col])
@@ -90,6 +100,7 @@ def xgb_regressor_wrapper( input_file, category_cols, dependent_var, output_stem
   #pre_score  = precision_score(y_test, predictions)
   return_dict = {}
   return_dict['MAE'] = mean_absolute_error( y_test, predictions )
+  return_dict['MSE'] = mean_squared_error( y_test,  predictions )
   return_dict['Feature Importance'] = {} # python3 requires declaring
   for importance_type in ('weight', 'gain', 'cover', 'total_gain', 'total_cover'):
     return_dict['Feature Importance'][importance_type] = xg_rgs.get_booster().get_score( importance_type = importance_type)
