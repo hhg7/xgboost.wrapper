@@ -8,9 +8,9 @@ parser._action_groups.pop()
 required = parser.add_argument_group('required arguments')
 optional = parser.add_argument_group('optional arguments')
 optional.add_argument('--colsample_bytree', default = 1, required = False) # range (0,1]
-required.add_argument('--file',        required = True)
-required.add_argument('--output_stem', required = True)
-required.add_argument('--target',      required = True)
+required.add_argument('--file',        required = True, help = 'Input csv, json, or xlsx file')
+required.add_argument('--output_stem', required = True, help = 'File stem for output files')
+required.add_argument('--target',      required = True, help = 'Target column for prediction in file')
 # https://xgboost.readthedocs.io/en/latest/parameter.html
 optional.add_argument('--max_depth',   default = 6, required = False)
 # max_depth range: [0,∞] (0 is only accepted in lossguided growing policy when tree_method is set as hist or gpu_hist)
@@ -18,8 +18,8 @@ optional.add_argument('--gamma',     default = 0,  required = False)
 # Minimum loss reduction required to make a further partition on a leaf node of the tree. The larger gamma is, the more conservative the algorithm will be. range: [0,∞]
 optional.add_argument('--learning_rate', default = 0.3, required = False) # range [0,1]
 optional.add_argument('--n_jobs', required = False, default = 1, type = int)
-optional.add_argument('--categorical', nargs='+', required = False)
-optional.add_argument('--drop', nargs='+', required = False)
+optional.add_argument('--categorical', nargs='+', required = False, 'Columns within the input file that are categorical arguments')
+optional.add_argument('--drop', nargs='+', required = False, help = 'Columns within the input file that should be removed')
 args = parser.parse_args()
 
 if not os.path.isfile(args.file):
