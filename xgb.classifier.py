@@ -18,7 +18,7 @@ optional.add_argument('--gamma',     default = 0,  required = False)
 # Minimum loss reduction required to make a further partition on a leaf node of the tree. The larger gamma is, the more conservative the algorithm will be. range: [0,∞]
 optional.add_argument('--learning_rate', default = 0.3, required = False) # range [0,1]
 optional.add_argument('--n_jobs', required = False, default = 1, type = int)
-optional.add_argument('--categorical', nargs='+', required = False, 'Columns within the input file that are categorical arguments')
+optional.add_argument('--categorical', nargs='+', required = False, help = 'Columns within the input file that are categorical arguments')
 optional.add_argument('--drop', nargs='+', required = False, help = 'Columns within the input file that should be removed')
 args = parser.parse_args()
 
