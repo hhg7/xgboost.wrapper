@@ -10,8 +10,8 @@ required = parser.add_argument_group('required arguments')
 optional = parser.add_argument_group('optional arguments')
 optional.add_argument('--colsample_bytree', default = 1, required = False) # range (0,1]
 required.add_argument('--file',        required = True, help = 'The input file')
-required.add_argument('--output_stem', required = True)
-required.add_argument('--target',      required = True)
+required.add_argument('--output_stem', required = True, help = 'Output file stem')
+required.add_argument('--target',      required = True, help = 'the column in the input file that you want to attempt to predict')
 # https://xgboost.readthedocs.io/en/latest/parameter.html
 optional.add_argument('--max_depth',   default = 6, required = False)
 # max_depth range: [0,∞] (0 is only accepted in lossguided growing policy when tree_method is set as hist or gpu_hist)
@@ -20,8 +20,8 @@ parser.add_argument('--gamma',     default = 0,  required = False)
 
 optional.add_argument('--learning_rate', default = 0.6, required = False) # range [0,1]
 optional.add_argument('--n_jobs', required = False, default = 1, type = int)
-optional.add_argument('--categorical', nargs='+', required = False)
-optional.add_argument('--drop', nargs='+', required = False)
+optional.add_argument('--categorical', nargs='+', required = False, help = 'Categorical variable columns in the input file: e.g. "sex", "Birth Location", etc.')
+optional.add_argument('--drop', nargs='+', required = False, help = 'Columns within the input file that should be removed')
 args = parser.parse_args()
 
 if not os.path.isfile(args.file):
@@ -34,7 +34,7 @@ import pandas as pd
 import pickle
 import matplotlib.pyplot as plt
 import numpy as np
-from sklearn.model_selection import train_test_split, KFold, cross_val_score, cross_validate
+from sklearn.model_selection import train_test_split, KFold, cross_val_score, cross_validate, GroupShuffleSplit
 import xgboost
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
@@ -72,6 +72,8 @@ def xgb_regressor_wrapper( input_file, category_cols, dependent_var, output_stem
     pandasDF = pd.read_csv(input_file)
   elif re.search(r'\.xlsx$', input_file):
     pandasDF = pd.read_excel(input_file)
+  elif re.search(r'\.tsv$', input_file):
+    pandasDF = pd.read_csv(input_file, delimiter = "\t")
   # https://stackoverflow.com/questions/58101126/using-scikit-learn-onehotencoder-with-a-pandas-dataframe
   pandasDF = sanitize_columns( pandasDF )
   if args.drop:
@@ -89,19 +91,37 @@ def xgb_regressor_wrapper( input_file, category_cols, dependent_var, output_stem
   with mlflow.start_run():
     # Set the model parameters. 
     n_estimators = 200
-    #colsample_bytree = 0.3 # colsample_bytree is the subsample ratio of columns when constructing each tree. Subsampling occurs once for every tree constructed.
-    #learning_rate = 0.05
-    #max_depth = 6# default 6; max. depth of a tree. Increasing this value will make the model more complex and more likely to overfit. 0 is only accepted in lossguided growing policy when tree_method is set as hist or gpu_hist and it indicates no limit on depth. Beware that XGBoost aggressively consumes memory when training a deep tree.
-    #min_child_rate = 0
-    #gamma = 0 # default = 0; Minimum loss reduction required to make a further partition on a leaf node of the tree. The larger gamma is, the more conservative the algorithm will be.
 
     # Create and train model.
     xg_rgs = xgboost.XGBRegressor( n_estimators=n_estimators, colsample_bytree=colsample_bytree, learning_rate=learning_rate, max_depth=max_depth, gamma = gamma, eval_metric = 'logloss')
     xg_rgs.fit(X_train, y_train)
     # Use the model to make predictions on the test dataset.
     predictions = xg_rgs.predict(X_test)
-  #accuracy = accuracy_score(y_test, predictions)
-  #pre_score  = precision_score(y_test, predictions)
+  
+  # --- NEW: Plotting actual vs predicted ---
+  plt.figure(figsize=(8, 6))
+  plt.scatter(y_test, predictions, alpha=0.5, color='blue')
+  
+  # Calculate min/max for identity line (perfect prediction reference line)
+  min_val = min(np.min(y_test), np.min(predictions))
+  max_val = max(np.max(y_test), np.max(predictions))
+  plt.plot([min_val, max_val], [min_val, max_val], 'r--', lw=2, label='Perfect Prediction')
+  
+  plt.xlabel('Real Values')
+  plt.ylabel('Predicted Values')
+  plt.title('Actual vs Predicted Plot')
+  plt.legend()
+  plt.tight_layout()
+  plt.savefig(image_dir + output_stem + '.actual_vs_predicted.svg')
+  plt.close()
+  
+  # --- NEW: Export predictions to JSON ---
+  pred_dict = {
+      'actual': y_test.tolist(),
+      'predicted': predictions.tolist()
+  }
+  ref_to_json_file(pred_dict, xgb_json_dir + output_stem + '.predictions.json')
+  
   return_dict = {}
   return_dict['MAE'] = mean_absolute_error( y_test, predictions )
   return_dict['MSE'] = mean_squared_error( y_test,  predictions )

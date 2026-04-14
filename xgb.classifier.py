@@ -3,7 +3,7 @@ import sys
 import re
 import os
 # the ML libraries take forever to load, so checking for the json file first saves time
-parser = argparse.ArgumentParser(description='Pass a file name.')
+parser = argparse.ArgumentParser(description='Wrapper for xgboost classifer.')
 parser._action_groups.pop()
 required = parser.add_argument_group('required arguments')
 optional = parser.add_argument_group('optional arguments')
