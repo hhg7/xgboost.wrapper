@@ -34,7 +34,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.model_selection import train_test_split, KFold, cross_val_score, cross_validate
 import xgboost
-from sklearn.metrics import accuracy_score, precision_score, roc_auc_score, RocCurveDisplay
+from sklearn.metrics import accuracy_score, precision_score, roc_auc_score, RocCurveDisplay, PrecisionRecallDisplay
 
 def ref_to_json_file(data, filename):
 	json1=json.dumps(data)
@@ -60,6 +60,10 @@ def xgbclassifier_wrapper( input_file, category_cols, dependent_var, output_stem
     pandasDF = pd.read_csv(input_file)
   elif re.search(r'\.xlsx$', input_file):
     pandasDF = pd.read_excel(input_file)
+  elif re.search(r'\.tsv$', input_file):
+    pandasDF = pd.read_csv(input_file, sep = "\t")
+  else:
+    sys.exit(f'input file {input_file} does not fit pigeonholes')
   # https://stackoverflow.com/questions/58101126/using-scikit-learn-onehotencoder-with-a-pandas-dataframe
   if args.drop:
   	for col in args.drop:
@@ -99,10 +103,22 @@ def xgbclassifier_wrapper( input_file, category_cols, dependent_var, output_stem
   results = cross_val_score(xg_clf, X, Y, cv=kfold)
   accuracy = results.mean() * 100
   y_score = xg_clf.predict_proba(X_test)[:, 1]
+  
+  # ROC Plot
   roc = RocCurveDisplay.from_predictions(y_test, y_score)#, name = dependent_var)
   roc_svg = image_dir + output_stem + '_ROC.svg'
   plt.savefig(roc_svg)
   return_dict['ROC_SVG'] = roc_svg
+  
+  # Precision-Recall Plot
+  plt.clf() # Clear figure to prevent overlapping plots
+  pr_disp = PrecisionRecallDisplay.from_predictions(y_test, y_score)
+  pre_rec_svg = image_dir + output_stem + '_PRE_REC.svg'
+  plt.savefig(pre_rec_svg)
+  return_dict['PRE_REC_SVG'] = pre_rec_svg
+  
+  plt.close('all') # Release memory and close figures
+  
   return_dict['precision_score'] = pre_score
   return_dict['accuracy']        = accuracy
   return_dict['roc_auc']         = roc.roc_auc
